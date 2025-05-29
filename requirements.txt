@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+jinja2
+pillow
+python-multipart
+rank_bm25
+PyMuPDF

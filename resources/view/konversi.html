@@ -1,0 +1,39 @@
+{% extends "layouts/base.html" %} {% block title %} {{ title }}  {% endblock %} {% block
+content %}
+<div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow">
+  <h1 class="text-3xl font-bold mb-4">Image Konversi</h1>
+  <p class="text-lg text-gray-700 text-justify">
+     {% if message %}
+    <div class="mb-4 p-3 bg-green-100 text-green-800 rounded">{{ message }}</div>
+  {% endif %}
+    <form action="/konversi-proses" method="post" enctype="multipart/form-data" class="space-y-4">
+    <div>
+      <label class="block text-gray-700 font-medium mb-2" for="file">Pilih Gambar :</label>
+      <input type="file" name="file" id="file" required
+             class="block w-full text-sm text-gray-700 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:ring-blue-500" />
+    </div>
+    <div>
+      <button type="submit"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+        Proses
+      </button>
+    </div>
+  </form>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+    {% if image_url %}
+    <div class="text-center">
+      <p class="text-sm text-gray-500 mb-2">Gambar Asli</p>
+      <img src="{{ image_url }}" alt="Original Image" class="w-full max-w-xs mx-auto border rounded shadow">
+    </div>
+    {% endif %}
+    {% if image_gray_url %}
+    <div class="text-center">
+      <p class="text-sm text-gray-500 mb-2">Gambar Grayscale</p>
+      <img src="{{ image_gray_url }}" alt="Grayscale Image" class="w-full max-w-xs mx-auto border rounded shadow">
+    </div>
+    {% endif %}
+  </div>
+  
+  </p>
+</div>
+{% endblock %}

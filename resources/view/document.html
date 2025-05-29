@@ -1,0 +1,38 @@
+{% extends "layouts/base.html" %} {% block title %}Daftar Dokumen{% endblock %} {% block
+content %}
+<div class=" mx-auto bg-white p-6 rounded-xl shadow">
+  <h1 class="text-3xl font-bold mb-4">Daftar Dokumen</h1>
+  <div>
+     {% if message %}
+        <div class="mb-4 p-3 bg-green-100 text-green-800 rounded">{{ message }}</div>
+      {% endif %}
+     <div class="my-5 flex justify-end">
+      <a href="/form-upload-document"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+        Unggah Dokumen
+     </a>
+    </div>
+    <table class="min-w-full border border-gray-200 divide-y divide-gray-200">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nama File</th>
+                    <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Ukuran (KB)</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-100">
+                {% for file in files %}
+                    <tr>
+                        <td class="px-4 py-2 text-gray-800">{{ file.name }}</td>
+                        <td class="px-4 py-2 text-gray-600">{{ file.size_kb }}</td>
+                    </tr>
+                {% endfor %}
+                {% if files|length == 0 %}
+                    <tr>
+                        <td colspan="2" class="px-4 py-4 text-center text-gray-400">Tidak ada file ditemukan.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+  </div>
+</div>
+{% endblock %}
