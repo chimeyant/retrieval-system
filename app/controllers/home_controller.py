@@ -7,4 +7,4 @@ async def index(request:Request):
     return templates.TemplateResponse("index.html", {"request": request, "title": "Beranda"})
 
 async def contact(request:Request):
-    return templates.TemplateResponse("contact.html", {"request":request, "title":"Contact US"})
+    return templates.TemplateResponse("contact.html", {"request":request, "title":"Contact US"} )
