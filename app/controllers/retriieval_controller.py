@@ -3,8 +3,8 @@ from fastapi.templating import Jinja2Templates
 import os, re, fitz, math
 from rank_bm25 import BM25Okapi
 from collections import Counter
-import gensim
-from gensim import corpora, models
+import numpy as np
+import random
 
 templates = Jinja2Templates(directory="resources/view")
 
@@ -98,39 +98,125 @@ def calculate_bm25(query, documents, k1=1.5, b=0.75):
 
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
-def calculate_lda(query, documents, num_topics=3):
+def create_vocabulary(documents):
+    """
+    Membuat vocabulary dari semua dokumen
+    """
+    vocabulary = set()
+    for doc in documents:
+        vocabulary.update(doc["tokens"])
+    return list(vocabulary)
+
+def create_document_term_matrix(documents, vocabulary):
+    """
+    Membuat matrix dokumen-term
+    """
+    vocab_dict = {word: i for i, word in enumerate(vocabulary)}
+    matrix = np.zeros((len(documents), len(vocabulary)))
+    
+    for i, doc in enumerate(documents):
+        for token in doc["tokens"]:
+            if token in vocab_dict:
+                matrix[i][vocab_dict[token]] += 1
+    
+    return matrix
+
+def initialize_lda_parameters(num_docs, num_words, num_topics):
+    """
+    Inisialisasi parameter LDA
+    """
+    # Distribusi topik untuk setiap dokumen (theta)
+    theta = np.random.dirichlet([0.1] * num_topics, num_docs)
+    
+    # Distribusi kata untuk setiap topik (phi)
+    phi = np.random.dirichlet([0.1] * num_words, num_topics)
+    
+    return theta, phi
+
+def calculate_lda_scores(query, documents, num_topics=3, max_iterations=50):
     """
     Menghitung skor LDA untuk setiap dokumen berdasarkan query.
+    Implementasi LDA sederhana tanpa gensim.
     """
-    # Siapkan data
-    texts = [doc["tokens"] for doc in documents]
-    dictionary = corpora.Dictionary(texts)
-    corpus = [dictionary.doc2bow(text) for text in texts]
+    if len(documents) == 0:
+        return []
     
-    # Buat model LDA
-    lda = models.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=10, random_state=42)
+    # Buat vocabulary dan matrix dokumen-term
+    vocabulary = create_vocabulary(documents)
+    doc_term_matrix = create_document_term_matrix(documents, vocabulary)
+    
+    num_docs = len(documents)
+    num_words = len(vocabulary)
+    
+    # Inisialisasi parameter
+    theta, phi = initialize_lda_parameters(num_docs, num_words, num_topics)
+    
+    # Gibbs sampling untuk LDA
+    for iteration in range(max_iterations):
+        # Update theta dan phi menggunakan Gibbs sampling
+        for doc_idx in range(num_docs):
+            for word_idx in range(num_words):
+                if doc_term_matrix[doc_idx][word_idx] > 0:
+                    # Hitung probabilitas untuk setiap topik
+                    probs = np.zeros(num_topics)
+                    for topic in range(num_topics):
+                        probs[topic] = theta[doc_idx][topic] * phi[topic][word_idx]
+                    
+                    # Normalisasi
+                    if np.sum(probs) > 0:
+                        probs = probs / np.sum(probs)
+                        
+                        # Update berdasarkan probabilitas
+                        for topic in range(num_topics):
+                            theta[doc_idx][topic] = (theta[doc_idx][topic] + probs[topic]) / 2
+                            phi[topic][word_idx] = (phi[topic][word_idx] + probs[topic]) / 2
     
     # Tokenisasi query
-    query_bow = dictionary.doc2bow(tokenize(query))
+    query_tokens = tokenize(query)
     
-    # Dapatkan distribusi topik untuk query
-    query_topics = lda.get_document_topics(query_bow)
+    # Hitung distribusi topik untuk query
+    query_vector = np.zeros(num_words)
+    vocab_dict = {word: i for i, word in enumerate(vocabulary)}
     
-    # Hitung kemiripan antara distribusi topik query dan dokumen
+    for token in query_tokens:
+        if token in vocab_dict:
+            query_vector[vocab_dict[token]] += 1
+    
+    # Normalisasi query vector
+    if np.sum(query_vector) > 0:
+        query_vector = query_vector / np.sum(query_vector)
+    
+    # Hitung distribusi topik untuk query
+    query_topic_dist = np.zeros(num_topics)
+    for topic in range(num_topics):
+        query_topic_dist[topic] = np.sum(query_vector * phi[topic])
+    
+    # Normalisasi distribusi topik query
+    if np.sum(query_topic_dist) > 0:
+        query_topic_dist = query_topic_dist / np.sum(query_topic_dist)
+    
+    # Hitung skor kemiripan antara query dan setiap dokumen
     results = []
     for i, doc in enumerate(documents):
-        doc_topics = lda.get_document_topics(corpus[i])
-        # Skor = jumlah topik yang sama antara query dan dokumen dikali bobotnya
-        score = 0.0
-        for q_topic, q_weight in query_topics:
-            for d_topic, d_weight in doc_topics:
-                if q_topic == d_topic:
-                    score += q_weight * d_weight
+        # Distribusi topik dokumen
+        doc_topic_dist = theta[i]
+        
+        # Hitung cosine similarity antara distribusi topik
+        similarity = np.dot(query_topic_dist, doc_topic_dist)
+        norm_query = np.linalg.norm(query_topic_dist)
+        norm_doc = np.linalg.norm(doc_topic_dist)
+        
+        if norm_query > 0 and norm_doc > 0:
+            similarity = similarity / (norm_query * norm_doc)
+        else:
+            similarity = 0
+        
         results.append({
             "filename": doc["filename"],
-            "score": round(score, 4),
+            "score": round(similarity, 4),
             "methode": "LDA"
         })
+    
     return sorted(results, key=lambda x: x["score"], reverse=True)
 
 async def analytic_proses(request:Request, query):
@@ -146,7 +232,7 @@ async def analytic_proses(request:Request, query):
     # Calculate scores using BM25, TF-IDF, dan LDA
     bm25_results = calculate_bm25(query, docs)
     tfidf_results = calculate_tfidf(query, docs)
-    lda_results = calculate_lda(query, docs)
+    lda_results = calculate_lda_scores(query, docs)
     
     # Combine results for display
     combined_results = []
